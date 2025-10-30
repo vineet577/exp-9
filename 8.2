@@ -1,0 +1,60 @@
+server.js :
+const express = require('express');
+const bodyParser = require('body-parser');
+const jwt = require('jsonwebtoken');
+
+const app = express();
+const PORT = 3000;
+
+// Middleware to parse JSON
+app.use(bodyParser.json());
+
+// Sample hardcoded user
+const sampleUser = {
+  id: 1,
+  username: 'testuser',
+  password: 'testpass' // In real apps, never store plain passwords
+};
+
+// Secret key for JWT
+const SECRET_KEY = 'yourSecretKey';
+
+// ----------------- LOGIN ROUTE -----------------
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+
+  // Basic validation
+  if (username === sampleUser.username && password === sampleUser.password) {
+    // Create a JWT token
+    const token = jwt.sign({ id: sampleUser.id, username: sampleUser.username }, SECRET_KEY, { expiresIn: '1h' });
+    return res.json({ message: 'Login successful', token });
+  } else {
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
+});
+
+// ----------------- JWT VERIFICATION MIDDLEWARE -----------------
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+
+  if (!authHeader) return res.status(401).json({ message: 'Authorization header missing' });
+
+  const token = authHeader.split(' ')[1]; // Expect Bearer token
+  if (!token) return res.status(401).json({ message: 'Token missing' });
+
+  jwt.verify(token, SECRET_KEY, (err, decoded) => {
+    if (err) return res.status(403).json({ message: 'Invalid or expired token' });
+    req.user = decoded; // store decoded user info in request
+    next(); // proceed to protected route
+  });
+};
+
+// ----------------- PROTECTED ROUTE -----------------
+app.get('/dashboard', verifyToken, (req, res) => {
+  res.json({ message: `Welcome ${req.user.username} to your dashboard!` });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
